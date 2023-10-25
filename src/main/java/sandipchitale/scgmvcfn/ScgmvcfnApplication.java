@@ -211,7 +211,7 @@ public class ScgmvcfnApplication {
 				.before(resolveUri())
 				.before(methodToPath())
 				.route(RequestPredicates.path("/").and(RequestPredicates.methods(HttpMethod.GET, HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE)),
-						http())
+						http()) // This is where the proxying happens
 				.after(methodHeader())
 				.onError(timeoutExceptionPredicate(), timeoutExceptionPredicateToServerResponse())
 				.build();
