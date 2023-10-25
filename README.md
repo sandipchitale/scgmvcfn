@@ -10,6 +10,7 @@
 For further reference, please consider the following sections:
 
 * [spring-cloud-gateway-mvc-sample](https://github.com/spencergibb/spring-cloud-gateway-mvc-sample)
+* [How to Include Spring Cloud Gateway Server MVC](https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway-server-mvc/starter.html)
 * [Official Gradle documentation](https://docs.gradle.org)
 * [Spring Boot Gradle Plugin Reference Guide](https://docs.spring.io/spring-boot/docs/3.2.0-RC1/gradle-plugin/reference/html/)
 * [Create an OCI image](https://docs.spring.io/spring-boot/docs/3.2.0-RC1/gradle-plugin/reference/html/#build-image)

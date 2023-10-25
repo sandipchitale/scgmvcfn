@@ -8,6 +8,7 @@ import org.springframework.boot.web.client.ClientHttpRequestFactories;
 import org.springframework.boot.web.client.ClientHttpRequestFactorySettings;
 import org.springframework.cloud.gateway.server.mvc.common.MvcUtils;
 import org.springframework.cloud.gateway.server.mvc.config.GatewayMvcProperties;
+import org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions;
 import org.springframework.cloud.gateway.server.mvc.handler.GatewayServerResponse;
 import org.springframework.cloud.gateway.server.mvc.handler.ProxyExchange;
 import org.springframework.cloud.gateway.server.mvc.handler.RestClientProxyExchange;
@@ -20,10 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.servlet.function.RequestPredicates;
-import org.springframework.web.servlet.function.RouterFunction;
-import org.springframework.web.servlet.function.ServerRequest;
-import org.springframework.web.servlet.function.ServerResponse;
+import org.springframework.web.servlet.function.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
@@ -36,7 +34,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import static org.springframework.cloud.gateway.server.mvc.handler.GatewayRouterFunctions.route;
 import static org.springframework.cloud.gateway.server.mvc.handler.HandlerFunctions.http;
 
 @SpringBootApplication
@@ -205,11 +202,12 @@ public class ScgmvcfnApplication {
 
 	@Bean
 	public RouterFunction<ServerResponse> postmanEchoRoute() {
-		return route("postman-echo")
-				.route(RequestPredicates.path("/").and(RequestPredicates.methods(HttpMethod.GET, HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE)),
-						http())
+		return RouterFunctions.route()
+				.before(BeforeFilterFunctions.routeId("postman-echo"))
 				.before(resolveUri())
 				.before(methodToPath())
+				.route(RequestPredicates.path("/").and(RequestPredicates.methods(HttpMethod.GET, HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE)),
+						http())
 				.after(methodHeader())
 				.onError(timeoutExceptionPredicate(), timeoutExceptionPredicateToServerResponse())
 				.build();
