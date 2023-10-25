@@ -12,10 +12,7 @@ import org.springframework.cloud.gateway.server.mvc.handler.GatewayServerRespons
 import org.springframework.cloud.gateway.server.mvc.handler.ProxyExchange;
 import org.springframework.cloud.gateway.server.mvc.handler.RestClientProxyExchange;
 import org.springframework.context.annotation.Bean;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
-import org.springframework.http.ProblemDetail;
+import org.springframework.http.*;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -23,6 +20,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.servlet.function.RequestPredicates;
 import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.ServerRequest;
 import org.springframework.web.servlet.function.ServerResponse;
@@ -43,6 +41,8 @@ import static org.springframework.cloud.gateway.server.mvc.handler.HandlerFuncti
 
 @SpringBootApplication
 public class ScgmvcfnApplication {
+
+	public static final String X_METHOD = "X-METHOD";
 
 	public static void main(String[] args) {
 		SpringApplication.run(ScgmvcfnApplication.class, args);
@@ -175,6 +175,7 @@ public class ScgmvcfnApplication {
 			problemDetail.setDetail(e.getCause().getMessage());
 			return ServerResponse
 					.status(HttpStatus.GATEWAY_TIMEOUT)
+					.header(X_METHOD, request.method().name())
 					.body(problemDetail);
 		};
 	}
@@ -194,41 +195,24 @@ public class ScgmvcfnApplication {
 		};
 	}
 
+	private static BiFunction<ServerRequest, ServerResponse, ServerResponse> methodHeader() {
+		return (serverRequest, serverResponse) -> {
+			if (!serverResponse.statusCode().isError()) {
+				serverResponse.headers().add(X_METHOD, serverRequest.method().name());
+			}
+			return serverResponse;
+		};
+	}
+
 	@Bean
 	public RouterFunction<ServerResponse> postmanEchoRoute() {
 		return route("postman-echo")
-				.GET("/", http())
+				.route(RequestPredicates.path("/").and(RequestPredicates.methods(HttpMethod.GET, HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE)), http())
 				.before(new PostmanechoUriResolver())
 				.before(methodToPath())
-				.after((serverRequest, serverResponse) -> {
-					serverResponse.headers().add("METHOD", serverRequest.method().name().toLowerCase());
-					return serverResponse;
-				})
-				.onError(timeoutExceptionPredicate(), timeoutExceptionPredicateToServerResponse())
-				.POST("/", http())
-				.before(new PostmanechoUriResolver())
-				.before(methodToPath())
-				.after((serverRequest, serverResponse) -> {
-					serverResponse.headers().add("METHOD", serverRequest.method().name().toLowerCase());
-					return serverResponse;
-				})
-				.onError(timeoutExceptionPredicate(), timeoutExceptionPredicateToServerResponse())
-				.PUT("/", http())
-				.before(new PostmanechoUriResolver())
-				.before(methodToPath())
-				.after((serverRequest, serverResponse) -> {
-					serverResponse.headers().add("METHOD", serverRequest.method().name().toLowerCase());
-					return serverResponse;
-				})
-				.onError(timeoutExceptionPredicate(), timeoutExceptionPredicateToServerResponse())
-				.DELETE("/", http())
-				.before(new PostmanechoUriResolver())
-				.before(methodToPath())
-				.after((serverRequest, serverResponse) -> {
-					serverResponse.headers().add("METHOD", serverRequest.method().name().toLowerCase());
-					return serverResponse;
-				})
+				.after(methodHeader())
 				.onError(timeoutExceptionPredicate(), timeoutExceptionPredicateToServerResponse())
 				.build();
 	}
+
 }
