@@ -73,31 +73,31 @@ public class ScgmvcfnApplication {
 	@Component
 	public static class PerRequestTimeoutRestClientProxyExchange extends RestClientProxyExchange {
 		private static final String X_TIMEOUT_MILLIS = "X-TIMEOUT-MILLIS";
-			private final RestClient.Builder restClientBuilder;
-		private final ClientHttpRequestFactory clientHttpRequestFactory;
+		private final RestClient.Builder restClientBuilder;
 		private final GatewayMvcProperties gatewayMvcProperties;
 		private final SslBundles sslBundles;
 
 		public PerRequestTimeoutRestClientProxyExchange(RestClient.Builder restClientBuilder,
-														ClientHttpRequestFactory clientHttpRequestFactory,
 														GatewayMvcProperties gatewayMvcProperties,
 														SslBundles sslBundles) {
 			super(restClientBuilder.build());
 			this.restClientBuilder = restClientBuilder;
-			this.clientHttpRequestFactory = clientHttpRequestFactory;
 			this.gatewayMvcProperties = gatewayMvcProperties;
 			this.sslBundles = sslBundles;
 		}
 
 		@Override
 		public ServerResponse exchange(Request request) {
-			if (request.getHeaders().getFirst(X_TIMEOUT_MILLIS) != null) {
-				RestClient restClient = restClientBuilder.requestFactory(gatewayClientHttpRequestFactory(gatewayMvcProperties,
+			String xTimeoutMillis = request.getHeaders().getFirst(X_TIMEOUT_MILLIS);
+			if (xTimeoutMillis != null) {
+				RestClient restClient = restClientBuilder
+						.requestFactory(gatewayClientHttpRequestFactory(gatewayMvcProperties,
 								sslBundles,
-								Duration.ofMillis(Long.parseLong(request.getHeaders().getFirst(X_TIMEOUT_MILLIS)))))
+								Duration.ofMillis(Long.parseLong(xTimeoutMillis)))) // Read timeout override
 						.build();
-
-				return restClient.method(request.getMethod()).uri(request.getUri())
+				return restClient
+						.method(request.getMethod())
+						.uri(request.getUri())
 						.headers(httpHeaders -> httpHeaders.putAll(request.getHeaders()))
 						.body(outputStream -> copyBody(request, outputStream))
 						.exchange((clientRequest, clientResponse) -> doExchange(request, clientResponse), false);
@@ -105,12 +105,14 @@ public class ScgmvcfnApplication {
 			return super.exchange(request);
 		}
 
+		// Streaming
 		private static int copyBody(Request request, OutputStream outputStream) throws IOException {
 			return StreamUtils.copy(request.getServerRequest().servletRequest().getInputStream(), outputStream);
 		}
 
 		private static ServerResponse doExchange(Request request, ClientHttpResponse clientResponse) throws IOException {
-			ServerResponse serverResponse = GatewayServerResponse.status(clientResponse.getStatusCode())
+			ServerResponse serverResponse = GatewayServerResponse
+					.status(clientResponse.getStatusCode())
 					.build((req, httpServletResponse) -> {
 						try (clientResponse) {
 							// copy body from request to clientHttpRequest
