@@ -1,5 +1,7 @@
 package sandipchitale.scgmvcfn;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.ssl.SslBundle;
@@ -113,16 +115,16 @@ public class ScgmvcfnApplication {
 		private static ServerResponse doExchange(Request request, ClientHttpResponse clientResponse) throws IOException {
 			ServerResponse serverResponse = GatewayServerResponse
 					.status(clientResponse.getStatusCode())
-					.build((req, httpServletResponse) -> {
+					.build((HttpServletRequest req, HttpServletResponse httpServletResponse) -> {
 						try (clientResponse) {
-							// copy body from request to clientHttpRequest
+							// copy body from clientResponse to response
 							StreamUtils.copy(clientResponse.getBody(), httpServletResponse.getOutputStream());
 						}
 						return null;
 					});
 			ClientHttpResponseAdapter proxyExchangeResponse = new ClientHttpResponseAdapter(clientResponse);
 			request.getResponseConsumers()
-					.forEach(responseConsumer -> responseConsumer.accept(proxyExchangeResponse, serverResponse));
+					.forEach((ResponseConsumer responseConsumer) -> responseConsumer.accept(proxyExchangeResponse, serverResponse));
 			return serverResponse;
 		}
 
