@@ -4,7 +4,7 @@
   the `method` of the request to the Postman Echo URL `https://postman-echo.com/{method}`.
 
 - Supports per request timeout by using  `X-TIMEOUT-MILLIS` header. If the header is not present, the default timeout is used.
-- Converts `SocketTimeoutException` || `HttpConnectTimeoutException` into `HttpStatus.GATEWAY_TIMEOUT` response.
+- Converts `SocketTimeoutException` or `HttpConnectTimeoutException` into `HttpStatus.GATEWAY_TIMEOUT` response.
 
 ### Reference Documentation
 For further reference, please consider the following sections:

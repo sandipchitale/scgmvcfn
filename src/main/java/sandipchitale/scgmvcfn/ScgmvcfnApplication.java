@@ -34,13 +34,19 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.http.HttpConnectTimeoutException;
 import java.time.Duration;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static org.springframework.cloud.gateway.server.mvc.handler.GatewayRouterFunctions.route;
 import static org.springframework.cloud.gateway.server.mvc.handler.HandlerFunctions.http;
 
 @SpringBootApplication
 public class ScgmvcfnApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ScgmvcfnApplication.class, args);
+	}
 
 	static class ClientHttpResponseAdapter implements ProxyExchange.Response {
 
@@ -151,11 +157,8 @@ public class ScgmvcfnApplication {
 		}
 	}
 
-	public static void main(String[] args) {
-		SpringApplication.run(ScgmvcfnApplication.class, args);
-	}
 
-	public static class PostmanechoUriResolver implements Function<ServerRequest, ServerRequest> {
+	private static class PostmanechoUriResolver implements Function<ServerRequest, ServerRequest> {
 
 		@Override
 		public ServerRequest apply(ServerRequest request) {
@@ -165,31 +168,67 @@ public class ScgmvcfnApplication {
 		}
 	}
 
+	private static BiFunction<Throwable, ServerRequest, ServerResponse> timeoutExceptionPredicateToServerResponse() {
+		return (e, request) -> {
+			ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.GATEWAY_TIMEOUT);
+			problemDetail.setType(request.uri());
+			problemDetail.setDetail(e.getCause().getMessage());
+			return ServerResponse
+					.status(HttpStatus.GATEWAY_TIMEOUT)
+					.body(problemDetail);
+		};
+	}
+
+	private static Predicate<Throwable> timeoutExceptionPredicate() {
+		return e -> e.getCause() instanceof SocketTimeoutException || e.getCause() instanceof HttpConnectTimeoutException;
+	}
+
+	private static Function<ServerRequest, ServerRequest> methodToPath() {
+		return (ServerRequest request) -> {
+			URI uri = UriComponentsBuilder
+					.fromUri(request.uri())
+					.replacePath(request.method().name().toLowerCase())
+					.build()
+					.toUri();
+			return ServerRequest.from(request).uri(uri).build();
+		};
+	}
+
 	@Bean
 	public RouterFunction<ServerResponse> postmanEchoRoute() {
 		return route("postman-echo")
 				.GET("/", http())
 				.before(new PostmanechoUriResolver())
-				.before((ServerRequest request) -> {
-					URI uri = UriComponentsBuilder
-							.fromUri(request.uri())
-							.replacePath(request.method().name().toLowerCase())
-							.build()
-							.toUri();
-					return ServerRequest.from(request).uri(uri).build();
+				.before(methodToPath())
+				.after((serverRequest, serverResponse) -> {
+					serverResponse.headers().add("METHOD", serverRequest.method().name().toLowerCase());
+					return serverResponse;
 				})
-				.filter((request, next) -> {
-					return next.handle(request);
+				.onError(timeoutExceptionPredicate(), timeoutExceptionPredicateToServerResponse())
+				.POST("/", http())
+				.before(new PostmanechoUriResolver())
+				.before(methodToPath())
+				.after((serverRequest, serverResponse) -> {
+					serverResponse.headers().add("METHOD", serverRequest.method().name().toLowerCase());
+					return serverResponse;
 				})
-				.onError(e -> e.getCause() instanceof SocketTimeoutException || e.getCause() instanceof HttpConnectTimeoutException,
-						(e, request) -> {
-							ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.GATEWAY_TIMEOUT);
-							problemDetail.setType(request.uri());
-							problemDetail.setDetail(e.getCause().getMessage());
-							return ServerResponse
-								.status(HttpStatus.GATEWAY_TIMEOUT)
-								.body(problemDetail);}
-				)
+				.onError(timeoutExceptionPredicate(), timeoutExceptionPredicateToServerResponse())
+				.PUT("/", http())
+				.before(new PostmanechoUriResolver())
+				.before(methodToPath())
+				.after((serverRequest, serverResponse) -> {
+					serverResponse.headers().add("METHOD", serverRequest.method().name().toLowerCase());
+					return serverResponse;
+				})
+				.onError(timeoutExceptionPredicate(), timeoutExceptionPredicateToServerResponse())
+				.DELETE("/", http())
+				.before(new PostmanechoUriResolver())
+				.before(methodToPath())
+				.after((serverRequest, serverResponse) -> {
+					serverResponse.headers().add("METHOD", serverRequest.method().name().toLowerCase());
+					return serverResponse;
+				})
+				.onError(timeoutExceptionPredicate(), timeoutExceptionPredicateToServerResponse())
 				.build();
 	}
 }
