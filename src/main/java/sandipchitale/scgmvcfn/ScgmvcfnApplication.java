@@ -157,15 +157,12 @@ public class ScgmvcfnApplication {
 		}
 	}
 
-
-	private static class PostmanechoUriResolver implements Function<ServerRequest, ServerRequest> {
-
-		@Override
-		public ServerRequest apply(ServerRequest request) {
+	private static Function<ServerRequest, ServerRequest> resolveUri() {
+		return (ServerRequest request) -> {
 			URI uri = URI.create("https://postman-echo.com/");
 			MvcUtils.setRequestUrl(request, uri);
 			return request;
-		}
+		};
 	}
 
 	private static Function<ServerRequest, ServerRequest> methodToPath() {
@@ -180,14 +177,16 @@ public class ScgmvcfnApplication {
 	}
 
 	private static Predicate<Throwable> timeoutExceptionPredicate() {
-		return e -> e.getCause() instanceof SocketTimeoutException || e.getCause() instanceof HttpConnectTimeoutException;
+		return (Throwable throwable) -> {
+            return throwable.getCause() instanceof SocketTimeoutException || throwable.getCause() instanceof HttpConnectTimeoutException;
+        };
 	}
 
 	private static BiFunction<Throwable, ServerRequest, ServerResponse> timeoutExceptionPredicateToServerResponse() {
-		return (e, request) -> {
+		return (Throwable throwable, ServerRequest request) -> {
 			ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.GATEWAY_TIMEOUT);
 			problemDetail.setType(request.uri());
-			problemDetail.setDetail(e.getCause().getMessage());
+			problemDetail.setDetail(throwable.getCause().getMessage());
 			return ServerResponse
 					.status(HttpStatus.GATEWAY_TIMEOUT)
 					.header(X_METHOD, request.method().name())
@@ -196,7 +195,7 @@ public class ScgmvcfnApplication {
 	}
 
 	private static BiFunction<ServerRequest, ServerResponse, ServerResponse> methodHeader() {
-		return (serverRequest, serverResponse) -> {
+		return (ServerRequest serverRequest, ServerResponse serverResponse) -> {
 			if (!serverResponse.statusCode().isError()) {
 				serverResponse.headers().add(X_METHOD, serverRequest.method().name());
 			}
@@ -207,8 +206,9 @@ public class ScgmvcfnApplication {
 	@Bean
 	public RouterFunction<ServerResponse> postmanEchoRoute() {
 		return route("postman-echo")
-				.route(RequestPredicates.path("/").and(RequestPredicates.methods(HttpMethod.GET, HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE)), http())
-				.before(new PostmanechoUriResolver())
+				.route(RequestPredicates.path("/").and(RequestPredicates.methods(HttpMethod.GET, HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE)),
+						http())
+				.before(resolveUri())
 				.before(methodToPath())
 				.after(methodHeader())
 				.onError(timeoutExceptionPredicate(), timeoutExceptionPredicateToServerResponse())
