@@ -168,6 +168,21 @@ public class ScgmvcfnApplication {
 		}
 	}
 
+	private static Function<ServerRequest, ServerRequest> methodToPath() {
+		return (ServerRequest request) -> {
+			URI uri = UriComponentsBuilder
+					.fromUri(request.uri())
+					.replacePath(request.method().name().toLowerCase())
+					.build()
+					.toUri();
+			return ServerRequest.from(request).uri(uri).build();
+		};
+	}
+
+	private static Predicate<Throwable> timeoutExceptionPredicate() {
+		return e -> e.getCause() instanceof SocketTimeoutException || e.getCause() instanceof HttpConnectTimeoutException;
+	}
+
 	private static BiFunction<Throwable, ServerRequest, ServerResponse> timeoutExceptionPredicateToServerResponse() {
 		return (e, request) -> {
 			ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.GATEWAY_TIMEOUT);
@@ -177,21 +192,6 @@ public class ScgmvcfnApplication {
 					.status(HttpStatus.GATEWAY_TIMEOUT)
 					.header(X_METHOD, request.method().name())
 					.body(problemDetail);
-		};
-	}
-
-	private static Predicate<Throwable> timeoutExceptionPredicate() {
-		return e -> e.getCause() instanceof SocketTimeoutException || e.getCause() instanceof HttpConnectTimeoutException;
-	}
-
-	private static Function<ServerRequest, ServerRequest> methodToPath() {
-		return (ServerRequest request) -> {
-			URI uri = UriComponentsBuilder
-					.fromUri(request.uri())
-					.replacePath(request.method().name().toLowerCase())
-					.build()
-					.toUri();
-			return ServerRequest.from(request).uri(uri).build();
 		};
 	}
 
