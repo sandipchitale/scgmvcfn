@@ -2,6 +2,7 @@ package sandipchitale.scgmvcfn;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.ssl.SslBundle;
@@ -43,7 +44,7 @@ import static org.springframework.cloud.gateway.server.mvc.handler.HandlerFuncti
 @SpringBootApplication
 public class ScgmvcfnApplication {
 
-	public static final String X_METHOD = "X-METHOD";
+	public static final String X_METHOD = "x-method";
 
 	public static void main(String[] args) {
 		SpringApplication.run(ScgmvcfnApplication.class, args);
@@ -177,6 +178,15 @@ public class ScgmvcfnApplication {
 //		};
 //	}
 
+	private Function<ServerRequest, ServerRequest> methodToRequestHeader() {
+		return (ServerRequest serverRequest) -> {
+			return ServerRequest.from(serverRequest)
+					.headers(httpHeaders -> {
+						httpHeaders.add(X_METHOD, serverRequest.method().name());
+					}).build();
+		};
+	}
+
 	private static Function<ServerRequest, ServerRequest> pathFromRequestMethodName() {
 		return (ServerRequest request) -> {
 			URI uri = UriComponentsBuilder
@@ -206,7 +216,7 @@ public class ScgmvcfnApplication {
 		};
 	}
 
-	private static BiFunction<ServerRequest, ServerResponse, ServerResponse> methodHeader() {
+	private static BiFunction<ServerRequest, ServerResponse, ServerResponse> methodToResponseHeader() {
 		return (ServerRequest serverRequest, ServerResponse serverResponse) -> {
 			if (!serverResponse.statusCode().isError()) {
 				serverResponse.headers().add(X_METHOD, serverRequest.method().name());
@@ -220,6 +230,7 @@ public class ScgmvcfnApplication {
 		return RouterFunctions.route()
 				.before(BeforeFilterFunctions.routeId("postman-echo"))
 //				.before(resolveUri())
+				.before(methodToRequestHeader())
 				.before(pathFromRequestMethodName())
 				.route(RequestPredicates.path("/")
 								.and(RequestPredicates.methods(
@@ -228,7 +239,7 @@ public class ScgmvcfnApplication {
 										HttpMethod.PUT,
 										HttpMethod.DELETE)),
 						http(URI.create("https://postman-echo.com/"))) // This is where the proxying to the external service happens
-				.after(methodHeader())
+				.after(methodToResponseHeader())
 				.onError(timeoutExceptionPredicate(), timeoutExceptionServerResponse())
 				.build();
 	}
