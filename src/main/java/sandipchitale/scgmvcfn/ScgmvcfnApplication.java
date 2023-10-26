@@ -2,14 +2,12 @@ package sandipchitale.scgmvcfn;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.validation.constraints.NotNull;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.ssl.SslBundle;
 import org.springframework.boot.ssl.SslBundles;
 import org.springframework.boot.web.client.ClientHttpRequestFactories;
 import org.springframework.boot.web.client.ClientHttpRequestFactorySettings;
-//import org.springframework.cloud.gateway.server.mvc.common.MvcUtils;
 import org.springframework.cloud.gateway.server.mvc.config.GatewayMvcProperties;
 import org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions;
 import org.springframework.cloud.gateway.server.mvc.handler.GatewayServerResponse;
@@ -170,14 +168,6 @@ public class ScgmvcfnApplication {
 		}
 	}
 
-//	private static Function<ServerRequest, ServerRequest> resolveUri() {
-//		return (ServerRequest request) -> {
-//			URI uri = URI.create("https://postman-echo.com/");
-//			MvcUtils.setRequestUrl(request, uri);
-//			return request;
-//		};
-//	}
-
 	private Function<ServerRequest, ServerRequest> methodToRequestHeader() {
 		return (ServerRequest serverRequest) -> {
 			return ServerRequest.from(serverRequest)
@@ -229,7 +219,6 @@ public class ScgmvcfnApplication {
 	public RouterFunction<ServerResponse> postmanEchoRoute() {
 		return RouterFunctions.route()
 				.before(BeforeFilterFunctions.routeId("postman-echo"))
-//				.before(resolveUri())
 				.before(methodToRequestHeader())
 				.before(pathFromRequestMethodName())
 				.route(RequestPredicates.path("/")
