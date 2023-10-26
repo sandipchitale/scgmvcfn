@@ -22,6 +22,8 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.function.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -45,6 +47,15 @@ public class ScgmvcfnApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(ScgmvcfnApplication.class, args);
+	}
+
+	@RestController
+	public static class HelloController {
+
+		@GetMapping("/hello")
+		public String hello() {
+			return "Hello World";
+		}
 	}
 
 	static class ClientHttpResponseAdapter implements ProxyExchange.Response {
@@ -158,13 +169,13 @@ public class ScgmvcfnApplication {
 		}
 	}
 
-	private static Function<ServerRequest, ServerRequest> resolveUri() {
-		return (ServerRequest request) -> {
-			URI uri = URI.create("https://postman-echo.com/");
-			MvcUtils.setRequestUrl(request, uri);
-			return request;
-		};
-	}
+//	private static Function<ServerRequest, ServerRequest> resolveUri() {
+//		return (ServerRequest request) -> {
+//			URI uri = URI.create("https://postman-echo.com/");
+//			MvcUtils.setRequestUrl(request, uri);
+//			return request;
+//		};
+//	}
 
 	private static Function<ServerRequest, ServerRequest> methodToPath() {
 		return (ServerRequest request) -> {
@@ -208,10 +219,10 @@ public class ScgmvcfnApplication {
 	public RouterFunction<ServerResponse> postmanEchoRoute() {
 		return RouterFunctions.route()
 				.before(BeforeFilterFunctions.routeId("postman-echo"))
-				.before(resolveUri())
+//				.before(resolveUri())
 				.before(methodToPath())
 				.route(RequestPredicates.path("/").and(RequestPredicates.methods(HttpMethod.GET, HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE)),
-						http()) // This is where the proxying happens
+						http(URI.create("https://postman-echo.com/"))) // This is where the proxying happens
 				.after(methodHeader())
 				.onError(timeoutExceptionPredicate(), timeoutExceptionPredicateToServerResponse())
 				.build();
