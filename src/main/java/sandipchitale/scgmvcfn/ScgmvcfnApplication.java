@@ -8,7 +8,7 @@ import org.springframework.boot.ssl.SslBundle;
 import org.springframework.boot.ssl.SslBundles;
 import org.springframework.boot.web.client.ClientHttpRequestFactories;
 import org.springframework.boot.web.client.ClientHttpRequestFactorySettings;
-import org.springframework.cloud.gateway.server.mvc.common.MvcUtils;
+//import org.springframework.cloud.gateway.server.mvc.common.MvcUtils;
 import org.springframework.cloud.gateway.server.mvc.config.GatewayMvcProperties;
 import org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions;
 import org.springframework.cloud.gateway.server.mvc.handler.GatewayServerResponse;
@@ -177,7 +177,7 @@ public class ScgmvcfnApplication {
 //		};
 //	}
 
-	private static Function<ServerRequest, ServerRequest> methodToPath() {
+	private static Function<ServerRequest, ServerRequest> pathFromRequestMethodName() {
 		return (ServerRequest request) -> {
 			URI uri = UriComponentsBuilder
 					.fromUri(request.uri())
@@ -194,7 +194,7 @@ public class ScgmvcfnApplication {
         };
 	}
 
-	private static BiFunction<Throwable, ServerRequest, ServerResponse> timeoutExceptionPredicateToServerResponse() {
+	private static BiFunction<Throwable, ServerRequest, ServerResponse> timeoutExceptionServerResponse() {
 		return (Throwable throwable, ServerRequest request) -> {
 			ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.GATEWAY_TIMEOUT);
 			problemDetail.setType(request.uri());
@@ -220,11 +220,16 @@ public class ScgmvcfnApplication {
 		return RouterFunctions.route()
 				.before(BeforeFilterFunctions.routeId("postman-echo"))
 //				.before(resolveUri())
-				.before(methodToPath())
-				.route(RequestPredicates.path("/").and(RequestPredicates.methods(HttpMethod.GET, HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE)),
-						http(URI.create("https://postman-echo.com/"))) // This is where the proxying happens
+				.before(pathFromRequestMethodName())
+				.route(RequestPredicates.path("/")
+								.and(RequestPredicates.methods(
+										HttpMethod.GET,
+										HttpMethod.POST,
+										HttpMethod.PUT,
+										HttpMethod.DELETE)),
+						http(URI.create("https://postman-echo.com/"))) // This is where the proxying to the external service happens
 				.after(methodHeader())
-				.onError(timeoutExceptionPredicate(), timeoutExceptionPredicateToServerResponse())
+				.onError(timeoutExceptionPredicate(), timeoutExceptionServerResponse())
 				.build();
 	}
 
