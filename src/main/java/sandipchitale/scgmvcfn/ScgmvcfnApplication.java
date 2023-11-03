@@ -33,6 +33,8 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.http.HttpConnectTimeoutException;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -89,6 +91,9 @@ public class ScgmvcfnApplication {
 		private final GatewayMvcProperties gatewayMvcProperties;
 		private final SslBundles sslBundles;
 
+		// Cache
+		private final Map<Long, RestClient> xTimeoutMillisToRestClientMap = new HashMap<>();
+
 		public PerRequestTimeoutRestClientProxyExchange(RestClient.Builder restClientBuilder,
 														GatewayMvcProperties gatewayMvcProperties,
 														SslBundles sslBundles) {
@@ -102,17 +107,24 @@ public class ScgmvcfnApplication {
 		public ServerResponse exchange(Request request) {
 			String xTimeoutMillis = request.getHeaders().getFirst(X_TIMEOUT_MILLIS);
 			if (xTimeoutMillis != null) {
-				RestClient restClient = restClientBuilder
-						.requestFactory(gatewayClientHttpRequestFactory(gatewayMvcProperties,
-								sslBundles,
-								Duration.ofMillis(Long.parseLong(xTimeoutMillis)))) // Read timeout override
-						.build();
-				return restClient
-						.method(request.getMethod())
-						.uri(request.getUri())
-						.headers(httpHeaders -> httpHeaders.putAll(request.getHeaders()))
-						.body(outputStream -> copyBody(request, outputStream))
-						.exchange((clientRequest, clientResponse) -> doExchange(request, clientResponse), false);
+				long xTimeoutMillisLong = Long.parseLong(xTimeoutMillis);
+				if (xTimeoutMillisLong > 0) {
+					RestClient restClient = xTimeoutMillisToRestClientMap.get(xTimeoutMillisLong);
+					if (restClient == null) {
+						restClient = restClientBuilder
+								.requestFactory(gatewayClientHttpRequestFactory(gatewayMvcProperties,
+										sslBundles,
+										Duration.ofMillis(Long.parseLong(xTimeoutMillis)))) // Read timeout override
+								.build();
+						xTimeoutMillisToRestClientMap.put(xTimeoutMillisLong, restClient);
+					}
+					return restClient
+							.method(request.getMethod())
+							.uri(request.getUri())
+							.headers(httpHeaders -> httpHeaders.putAll(request.getHeaders()))
+							.body(outputStream -> copyBody(request, outputStream))
+							.exchange((clientRequest, clientResponse) -> doExchange(request, clientResponse), false);
+				}
 			}
 			return super.exchange(request);
 		}
