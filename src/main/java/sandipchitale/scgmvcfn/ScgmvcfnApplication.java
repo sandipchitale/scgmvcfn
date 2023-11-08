@@ -19,6 +19,7 @@ import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Controller;
 import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -50,12 +51,11 @@ public class ScgmvcfnApplication {
 		SpringApplication.run(ScgmvcfnApplication.class, args);
 	}
 
-	@RestController
-	public static class HelloController {
-
-		@GetMapping("/hello")
-		public String hello() {
-			return "Hello World";
+	@Controller
+	public static class TestController {
+		@GetMapping("/test")
+		public String test() {
+			return "test.html";
 		}
 	}
 

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SCG MVCfn Demo</title>
+    <script type="application/javascript">
+        function doPut() {
+            const xhr = new XMLHttpRequest();
+            xhr.open("PUT", "/", true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    document.getElementById("put").innerText = xhr.responseText;
+                }
+            }
+            const data = JSON.stringify({"library":"org.springframework.cloud:spring-cloud-starter-gateway-mvc"});
+            xhr.send(data);
+        }
+        function doDelete() {
+            const xhr = new XMLHttpRequest();
+            xhr.open("DELETE", "/", true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    document.getElementById("delete").innerText = xhr.responseText;
+                }
+            }
+            const data = "";
+            xhr.send(data);
+        }
+    </script>
+</head>
+<body>
+    <h1>Spring Cloud Gateway MVC fn Demo</h1>
+    <p><a href="https://docs.spring.io/spring-cloud-gateway/reference/spring-cloud-gateway-server-mvc.html" target="_blank">Spring Cloud Gateway MVC fn</a> is a new implementation that works with Spring MVC stack.</p>
+    <a href="/?library=org.springframework.cloud:spring-cloud-starter-gateway-mvc" target="_blank">Get</a>
+    <br/>
+    <hr/>
+    <br/>
+    <form method="post" action="/" target="_blank">
+        <label for="library">Library:</label>
+        <input type="text" id="library" name="library" value="org.springframework.cloud:spring-cloud-starter-gateway-mvc"/>
+        <input type="submit" value="Post"/>
+    </form>
+    <br/>
+    <hr/>
+    <br/>
+    <button onclick="doPut();">Put</button>
+    <br/>
+    <div style="font-family: monospace;">
+        <pre id="put">
+        </pre>
+    </div>
+    <br/>
+    <hr/>
+    <br/>
+    <button onclick="doDelete();">Delete</button>
+    <br/>
+    <div style="font-family: monospace;">
+        <pre id="delete">
+        </pre>
+    </div>
+</body>
+</html>
