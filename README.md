@@ -5,6 +5,8 @@
 
 - Supports per request timeout by using  `X-TIMEOUT-MILLIS` header. If the header is not present, the default timeout is used.
 - Converts `SocketTimeoutException` or `HttpConnectTimeoutException` into `HttpStatus.GATEWAY_TIMEOUT` response.
+- Sets a request header `x-method`
+- Sets a response header `x-method`
 
 Use [Test page](http://localhost:8080/test.html) to test the application.
 

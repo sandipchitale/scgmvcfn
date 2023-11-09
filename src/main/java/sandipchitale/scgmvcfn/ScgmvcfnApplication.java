@@ -203,8 +203,8 @@ public class ScgmvcfnApplication {
 
 	private static Predicate<Throwable> timeoutExceptionPredicate() {
 		return (Throwable throwable) -> {
-            return throwable.getCause() instanceof SocketTimeoutException || throwable.getCause() instanceof HttpConnectTimeoutException;
-        };
+			return throwable.getCause() instanceof SocketTimeoutException || throwable.getCause() instanceof HttpConnectTimeoutException;
+		};
 	}
 
 	private static BiFunction<Throwable, ServerRequest, ServerResponse> timeoutExceptionServerResponse() {
