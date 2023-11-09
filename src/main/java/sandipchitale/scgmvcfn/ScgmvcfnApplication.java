@@ -193,6 +193,7 @@ public class ScgmvcfnApplication {
 		return (ServerRequest request) -> {
 			URI uri = UriComponentsBuilder
 					.fromUri(request.uri())
+					.replaceQuery("") // need to clear query string - why?
 					.replacePath(request.method().name().toLowerCase())
 					.build()
 					.toUri();
