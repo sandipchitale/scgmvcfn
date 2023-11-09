@@ -23,7 +23,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.function.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -48,6 +47,7 @@ public class ScgmvcfnApplication {
 	public static final String X_METHOD = "x-method";
 
 	public static void main(String[] args) {
+		System.out.println("java.version = " + System.getProperty("java.version"));
 		SpringApplication.run(ScgmvcfnApplication.class, args);
 	}
 
