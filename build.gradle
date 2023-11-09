@@ -8,7 +8,10 @@ group = 'sandipchitale'
 version = '0.0.1-SNAPSHOT'
 
 java {
-	sourceCompatibility = '17'
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+		vendor = JvmVendorSpec.ADOPTIUM
+	}
 }
 
 repositories {
@@ -28,6 +31,12 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.cloud:spring-cloud-starter-gateway-mvc'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+compileJava {
+	doFirst {
+		print("Java Toolchain Version: " + javaCompiler.get().metadata.languageVersion)
+	}
 }
 
 tasks.named('test') {
