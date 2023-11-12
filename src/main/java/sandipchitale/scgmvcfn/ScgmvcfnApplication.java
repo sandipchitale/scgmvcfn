@@ -57,9 +57,9 @@ public class ScgmvcfnApplication {
 	public static class PerRequestTimeoutRestClientProxyExchange extends RestClientProxyExchange {
 		private static final String X_TIMEOUT_MILLIS = "X-TIMEOUT-MILLIS";
 		private final RestClient.Builder restClientBuilder;
+		private final GatewayServerMvcAutoConfiguration gatewayServerMvcAutoConfiguration;
 		private final GatewayMvcProperties gatewayMvcProperties;
 		private final SslBundles sslBundles;
-		private final GatewayServerMvcAutoConfiguration gatewayServerMvcAutoConfiguration;
 
 		// Cache
 		private final Map<Long, RestClient> xTimeoutMillisToRestClientMap = new HashMap<>();
@@ -67,14 +67,14 @@ public class ScgmvcfnApplication {
 		private final Method superDoExchange;
 
 		public PerRequestTimeoutRestClientProxyExchange(RestClient.Builder restClientBuilder,
+														GatewayServerMvcAutoConfiguration gatewayServerMvcAutoConfiguration,
 														GatewayMvcProperties gatewayMvcProperties,
-														SslBundles sslBundles,
-														GatewayServerMvcAutoConfiguration gatewayServerMvcAutoConfiguration) {
+														SslBundles sslBundles) {
 			super(restClientBuilder.build());
 			this.restClientBuilder = restClientBuilder;
+			this.gatewayServerMvcAutoConfiguration = gatewayServerMvcAutoConfiguration;
 			this.gatewayMvcProperties = gatewayMvcProperties;
 			this.sslBundles = sslBundles;
-			this.gatewayServerMvcAutoConfiguration = gatewayServerMvcAutoConfiguration;
 
 			superCopyBody = ReflectionUtils.findMethod(RestClientProxyExchange.class, "copyBody", Request.class, OutputStream.class);
 			if (superCopyBody != null) {
@@ -156,7 +156,9 @@ public class ScgmvcfnApplication {
 		return (ServerRequest request) -> {
 			URI uri = UriComponentsBuilder
 					.fromUri(request.uri())
-					.replaceQuery("") // need to clear query string - why?
+					// need to clear query string, because query params
+					// are also captured by ServerRequest.from(request)
+					.replaceQuery("")
 					.replacePath(request.method().name().toLowerCase())
 					.build()
 					.toUri();
@@ -194,6 +196,7 @@ public class ScgmvcfnApplication {
 	@Bean
 	public RouterFunction<ServerResponse> postmanEchoRoute() {
 		return RouterFunctions.route()
+//				.before(BeforeFilterFunctions.routeId("echo"))
 				.before(BeforeFilterFunctions.routeId("postman-echo"))
 				.before(methodToRequestHeader())
 				.before(pathFromRequestMethodName())
