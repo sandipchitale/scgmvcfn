@@ -5,7 +5,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.ssl.SslBundles;
 import org.springframework.cloud.gateway.server.mvc.GatewayServerMvcAutoConfiguration;
 import org.springframework.cloud.gateway.server.mvc.config.GatewayMvcProperties;
-import org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions;
 import org.springframework.cloud.gateway.server.mvc.handler.RestClientProxyExchange;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpMethod;
@@ -33,6 +32,8 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions.routeId;
+import static org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions.setPath;
 import static org.springframework.cloud.gateway.server.mvc.handler.HandlerFunctions.http;
 
 @SpringBootApplication
@@ -197,7 +198,7 @@ public class ScgmvcfnApplication {
 	public RouterFunction<ServerResponse> postmanEchoRoute() {
 		return RouterFunctions.route()
 //				.before(BeforeFilterFunctions.routeId("echo"))
-				.before(BeforeFilterFunctions.routeId("postman-echo"))
+				.before(routeId("postman-echo"))
 				.before(methodToRequestHeader())
 				.before(pathFromRequestMethodName())
 				.route(RequestPredicates.path("/")
@@ -206,8 +207,8 @@ public class ScgmvcfnApplication {
 										HttpMethod.POST,
 										HttpMethod.PUT,
 										HttpMethod.DELETE)),
-//						http(URI.create("http://localhost:9090/"))) // This is where the proxying to the external service happens
-						http(URI.create("https://postman-echo.com/"))) // This is where the proxying to the external service happens
+//						http(URI.create("http://localhost:9090/"))) // This is where the proxying to the external, local echo service happens
+						http(URI.create("https://postman-echo.com/"))) // This is where the proxying to the external postman-echo service happens
 				.after(methodToResponseHeader())
 				.onError(timeoutExceptionPredicate(), timeoutExceptionServerResponse())
 				.build();
