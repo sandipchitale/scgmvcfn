@@ -1,34 +1,28 @@
 package sandipchitale.scgmvcfn;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.ssl.SslBundle;
 import org.springframework.boot.ssl.SslBundles;
-import org.springframework.boot.web.client.ClientHttpRequestFactories;
-import org.springframework.boot.web.client.ClientHttpRequestFactorySettings;
+import org.springframework.cloud.gateway.server.mvc.GatewayServerMvcAutoConfiguration;
 import org.springframework.cloud.gateway.server.mvc.config.GatewayMvcProperties;
 import org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions;
-import org.springframework.cloud.gateway.server.mvc.handler.GatewayServerResponse;
-import org.springframework.cloud.gateway.server.mvc.handler.ProxyExchange;
 import org.springframework.cloud.gateway.server.mvc.handler.RestClientProxyExchange;
 import org.springframework.context.annotation.Bean;
-import org.springframework.http.*;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
-import org.springframework.util.StreamUtils;
-import org.springframework.util.StringUtils;
+import org.springframework.util.ReflectionUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.function.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Method;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.http.HttpConnectTimeoutException;
@@ -59,53 +53,44 @@ public class ScgmvcfnApplication {
 		}
 	}
 
-	static class ClientHttpResponseAdapter implements ProxyExchange.Response {
-
-		private final ClientHttpResponse response;
-
-		ClientHttpResponseAdapter(ClientHttpResponse response) {
-			this.response = response;
-		}
-
-		@Override
-		public HttpStatusCode getStatusCode() {
-			try {
-				return response.getStatusCode();
-			}
-			catch (IOException e) {
-				throw new RuntimeException(e);
-			}
-		}
-
-		@Override
-		public HttpHeaders getHeaders() {
-			return response.getHeaders();
-		}
-
-	}
-
 	@Component
 	public static class PerRequestTimeoutRestClientProxyExchange extends RestClientProxyExchange {
 		private static final String X_TIMEOUT_MILLIS = "X-TIMEOUT-MILLIS";
 		private final RestClient.Builder restClientBuilder;
 		private final GatewayMvcProperties gatewayMvcProperties;
 		private final SslBundles sslBundles;
+		private final GatewayServerMvcAutoConfiguration gatewayServerMvcAutoConfiguration;
 
 		// Cache
 		private final Map<Long, RestClient> xTimeoutMillisToRestClientMap = new HashMap<>();
+		private final Method superCopyBody;
+		private final Method superDoExchange;
 
 		public PerRequestTimeoutRestClientProxyExchange(RestClient.Builder restClientBuilder,
 														GatewayMvcProperties gatewayMvcProperties,
-														SslBundles sslBundles) {
+														SslBundles sslBundles,
+														GatewayServerMvcAutoConfiguration gatewayServerMvcAutoConfiguration) {
 			super(restClientBuilder.build());
 			this.restClientBuilder = restClientBuilder;
 			this.gatewayMvcProperties = gatewayMvcProperties;
 			this.sslBundles = sslBundles;
+			this.gatewayServerMvcAutoConfiguration = gatewayServerMvcAutoConfiguration;
+
+			superCopyBody = ReflectionUtils.findMethod(RestClientProxyExchange.class, "copyBody", Request.class, OutputStream.class);
+			if (superCopyBody != null) {
+				ReflectionUtils.makeAccessible(superCopyBody);
+			}
+
+			superDoExchange = ReflectionUtils.findMethod(RestClientProxyExchange.class, "doExchange", Request.class, ClientHttpResponse.class);
+			if (superDoExchange != null) {
+				ReflectionUtils.makeAccessible(superDoExchange);
+			}
 		}
 
 		@Override
 		public ServerResponse exchange(Request request) {
 			String xTimeoutMillis = request.getHeaders().getFirst(X_TIMEOUT_MILLIS);
+//			xTimeoutMillis = "30";
 			if (xTimeoutMillis != null) {
 				long xTimeoutMillisLong = Long.parseLong(xTimeoutMillis);
 				if (xTimeoutMillisLong > 0) {
@@ -122,61 +107,39 @@ public class ScgmvcfnApplication {
 							.method(request.getMethod())
 							.uri(request.getUri())
 							.headers(httpHeaders -> httpHeaders.putAll(request.getHeaders()))
-							.body(outputStream -> copyBody(request, outputStream))
-							.exchange((clientRequest, clientResponse) -> doExchange(request, clientResponse), false);
+							.body(outputStream -> copyBody(superCopyBody, request, outputStream))
+							.exchange((clientRequest, clientResponse) -> doExchange(superDoExchange, request, clientResponse), false);
 				}
 			}
 			return super.exchange(request);
 		}
 
-		// Streaming
-		private static int copyBody(Request request, OutputStream outputStream) throws IOException {
-			return StreamUtils.copy(request.getServerRequest().servletRequest().getInputStream(), outputStream);
+		// Try to use original implementation as much as possible
+		private static void copyBody(Method superCopyBody, Request request, OutputStream outputStream) {
+			ReflectionUtils.invokeMethod(superCopyBody,
+					null,
+					request,
+					outputStream);
 		}
 
-		private static ServerResponse doExchange(Request request, ClientHttpResponse clientResponse) throws IOException {
-			ServerResponse serverResponse = GatewayServerResponse
-					.status(clientResponse.getStatusCode())
-					.build((HttpServletRequest req, HttpServletResponse httpServletResponse) -> {
-						try (clientResponse) {
-							// copy body from clientResponse to response
-							StreamUtils.copy(clientResponse.getBody(), httpServletResponse.getOutputStream());
-						}
-						return null;
-					});
-			ClientHttpResponseAdapter proxyExchangeResponse = new ClientHttpResponseAdapter(clientResponse);
-			request.getResponseConsumers()
-					.forEach((ResponseConsumer responseConsumer) -> responseConsumer.accept(proxyExchangeResponse, serverResponse));
-			return serverResponse;
+		private static ServerResponse doExchange(Method superDoExchange, Request request, ClientHttpResponse clientResponse) {
+			return (ServerResponse) ReflectionUtils.invokeMethod(superDoExchange,
+					null,
+					request,
+					clientResponse);
 		}
 
 		private ClientHttpRequestFactory gatewayClientHttpRequestFactory(GatewayMvcProperties gatewayMvcProperties,
 																		 SslBundles sslBundles,
 																		 Duration readTimeout) {
-			GatewayMvcProperties.HttpClient properties = gatewayMvcProperties.getHttpClient();
-
-			SslBundle sslBundle = null;
-			if (StringUtils.hasText(properties.getSslBundle())) {
-				sslBundle = sslBundles.getBundle(properties.getSslBundle());
+			Duration originalReadTimeout = gatewayMvcProperties.getHttpClient().getReadTimeout();
+			try {
+				gatewayMvcProperties.getHttpClient().setReadTimeout(readTimeout);
+				return gatewayServerMvcAutoConfiguration.gatewayClientHttpRequestFactory(gatewayMvcProperties,
+						sslBundles);
+			} finally {
+				gatewayMvcProperties.getHttpClient().setReadTimeout(originalReadTimeout);
 			}
-			ClientHttpRequestFactorySettings settings = new ClientHttpRequestFactorySettings(properties.getConnectTimeout(),
-					readTimeout, sslBundle);
-
-			if (properties.getType() == GatewayMvcProperties.HttpClientType.JDK) {
-				// TODO: customize restricted headers
-				String restrictedHeaders = System.getProperty("jdk.httpclient.allowRestrictedHeaders");
-				if (!StringUtils.hasText(restrictedHeaders)) {
-					System.setProperty("jdk.httpclient.allowRestrictedHeaders", "host");
-				}
-				else if (StringUtils.hasText(restrictedHeaders) && !restrictedHeaders.contains("host")) {
-					System.setProperty("jdk.httpclient.allowRestrictedHeaders", restrictedHeaders + ",host");
-				}
-
-				return ClientHttpRequestFactories.get(JdkClientHttpRequestFactory.class, settings);
-			}
-
-			// Autodetect
-			return ClientHttpRequestFactories.get(settings);
 		}
 	}
 
@@ -209,7 +172,7 @@ public class ScgmvcfnApplication {
 
 	private static BiFunction<Throwable, ServerRequest, ServerResponse> timeoutExceptionServerResponse() {
 		return (Throwable throwable, ServerRequest request) -> {
-			ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.GATEWAY_TIMEOUT);
+				ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.GATEWAY_TIMEOUT);
 			problemDetail.setType(request.uri());
 			problemDetail.setDetail(throwable.getCause().getMessage());
 			return ServerResponse
@@ -240,6 +203,7 @@ public class ScgmvcfnApplication {
 										HttpMethod.POST,
 										HttpMethod.PUT,
 										HttpMethod.DELETE)),
+//						http(URI.create("http://localhost:9090/"))) // This is where the proxying to the external service happens
 						http(URI.create("https://postman-echo.com/"))) // This is where the proxying to the external service happens
 				.after(methodToResponseHeader())
 				.onError(timeoutExceptionPredicate(), timeoutExceptionServerResponse())
