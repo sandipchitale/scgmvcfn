@@ -1,5 +1,7 @@
 package sandipchitale.scgmvcfn;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.ssl.SslBundles;
@@ -7,9 +9,7 @@ import org.springframework.cloud.gateway.server.mvc.GatewayServerMvcAutoConfigur
 import org.springframework.cloud.gateway.server.mvc.config.GatewayMvcProperties;
 import org.springframework.cloud.gateway.server.mvc.handler.RestClientProxyExchange;
 import org.springframework.context.annotation.Bean;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
+import org.springframework.http.*;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Component;
@@ -33,7 +33,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions.routeId;
-import static org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions.setPath;
 import static org.springframework.cloud.gateway.server.mvc.handler.HandlerFunctions.http;
 
 @SpringBootApplication
@@ -107,23 +106,33 @@ public class ScgmvcfnApplication {
 					return restClient
 							.method(request.getMethod())
 							.uri(request.getUri())
-							.headers(httpHeaders -> httpHeaders.putAll(request.getHeaders()))
-							.body(outputStream -> copyBody(superCopyBody, request, outputStream))
-							.exchange((clientRequest, clientResponse) -> doExchange(superDoExchange, request, clientResponse), false);
+							.headers((HttpHeaders httpHeaders) -> {
+                                httpHeaders.putAll(request.getHeaders());
+                            })
+							.body((OutputStream outputStream) -> {
+                                copyBody(superCopyBody, request, outputStream);
+                            })
+							.exchange((HttpRequest clientRequest, ClientHttpResponse clientResponse) -> {
+								return doExchange(superDoExchange, request, clientResponse);
+								}, false);
 				}
 			}
 			return super.exchange(request);
 		}
 
 		// Try to use original implementation as much as possible
-		private static void copyBody(Method superCopyBody, Request request, OutputStream outputStream) {
+		private static void copyBody(Method superCopyBody,
+									 Request request,
+									 OutputStream outputStream) {
 			ReflectionUtils.invokeMethod(superCopyBody,
 					null,
 					request,
 					outputStream);
 		}
 
-		private static ServerResponse doExchange(Method superDoExchange, Request request, ClientHttpResponse clientResponse) {
+		private static ServerResponse doExchange(Method superDoExchange,
+												 Request request,
+												 ClientHttpResponse clientResponse) {
 			return (ServerResponse) ReflectionUtils.invokeMethod(superDoExchange,
 					null,
 					request,
@@ -133,13 +142,23 @@ public class ScgmvcfnApplication {
 		private ClientHttpRequestFactory gatewayClientHttpRequestFactory(GatewayMvcProperties gatewayMvcProperties,
 																		 SslBundles sslBundles,
 																		 Duration readTimeout) {
-			Duration originalReadTimeout = gatewayMvcProperties.getHttpClient().getReadTimeout();
 			try {
-				gatewayMvcProperties.getHttpClient().setReadTimeout(readTimeout);
-				return gatewayServerMvcAutoConfiguration.gatewayClientHttpRequestFactory(gatewayMvcProperties,
-						sslBundles);
-			} finally {
-				gatewayMvcProperties.getHttpClient().setReadTimeout(originalReadTimeout);
+				Duration originalReadTimeout = gatewayMvcProperties.getHttpClient().getReadTimeout();
+				try {
+					// Clone gatewayMvcProperties
+					ObjectMapper objectMapper = new ObjectMapper();
+					GatewayMvcProperties gatewayMvcPropertiesClone = null;
+						gatewayMvcPropertiesClone = objectMapper
+								.readValue(objectMapper.writeValueAsString(gatewayMvcProperties), GatewayMvcProperties.class);
+					// override read timeout
+					gatewayMvcPropertiesClone.getHttpClient().setReadTimeout(readTimeout);
+					return gatewayServerMvcAutoConfiguration.gatewayClientHttpRequestFactory(gatewayMvcPropertiesClone,
+							sslBundles);
+				} finally {
+					gatewayMvcProperties.getHttpClient().setReadTimeout(originalReadTimeout);
+				}
+			} catch (JsonProcessingException e) {
+				throw new RuntimeException(e);
 			}
 		}
 	}
@@ -169,7 +188,8 @@ public class ScgmvcfnApplication {
 
 	private static Predicate<Throwable> timeoutExceptionPredicate() {
 		return (Throwable throwable) -> {
-			return throwable.getCause() instanceof SocketTimeoutException || throwable.getCause() instanceof HttpConnectTimeoutException;
+			return throwable.getCause() instanceof SocketTimeoutException ||
+					throwable.getCause() instanceof HttpConnectTimeoutException;
 		};
 	}
 
@@ -207,8 +227,10 @@ public class ScgmvcfnApplication {
 										HttpMethod.POST,
 										HttpMethod.PUT,
 										HttpMethod.DELETE)),
-//						http(URI.create("http://localhost:9090/"))) // This is where the proxying to the external, local echo service happens
-						http(URI.create("https://postman-echo.com/"))) // This is where the proxying to the external postman-echo service happens
+//                      This is where the proxying to the external, local echo service happens
+//						http(URI.create("http://localhost:9090/")))
+//				        This is where the proxying to the external postman-echo service happens
+						http(URI.create("https://postman-echo.com/")))
 				.after(methodToResponseHeader())
 				.onError(timeoutExceptionPredicate(), timeoutExceptionServerResponse())
 				.build();
