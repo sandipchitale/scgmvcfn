@@ -143,20 +143,15 @@ public class ScgmvcfnApplication {
 																		 SslBundles sslBundles,
 																		 Duration readTimeout) {
 			try {
-				Duration originalReadTimeout = gatewayMvcProperties.getHttpClient().getReadTimeout();
-				try {
-					// Clone gatewayMvcProperties
-					ObjectMapper objectMapper = new ObjectMapper();
-					GatewayMvcProperties gatewayMvcPropertiesClone = null;
-						gatewayMvcPropertiesClone = objectMapper
-								.readValue(objectMapper.writeValueAsString(gatewayMvcProperties), GatewayMvcProperties.class);
-					// override read timeout
-					gatewayMvcPropertiesClone.getHttpClient().setReadTimeout(readTimeout);
-					return gatewayServerMvcAutoConfiguration.gatewayClientHttpRequestFactory(gatewayMvcPropertiesClone,
-							sslBundles);
-				} finally {
-					gatewayMvcProperties.getHttpClient().setReadTimeout(originalReadTimeout);
-				}
+				ObjectMapper objectMapper = new ObjectMapper();
+				// Clone gatewayMvcProperties
+				GatewayMvcProperties gatewayMvcPropertiesClone = null;
+					gatewayMvcPropertiesClone = objectMapper
+							.readValue(objectMapper.writeValueAsString(gatewayMvcProperties), GatewayMvcProperties.class);
+				// Set specified read timeout
+				gatewayMvcPropertiesClone.getHttpClient().setReadTimeout(readTimeout);
+				return gatewayServerMvcAutoConfiguration.gatewayClientHttpRequestFactory(gatewayMvcPropertiesClone,
+						sslBundles);
 			} catch (JsonProcessingException e) {
 				throw new RuntimeException(e);
 			}
