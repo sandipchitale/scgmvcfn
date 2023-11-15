@@ -144,9 +144,8 @@ public class ScgmvcfnApplication {
 																		 Duration readTimeout) {
 			try {
 				ObjectMapper objectMapper = new ObjectMapper();
-				// Clone gatewayMvcProperties
-				GatewayMvcProperties gatewayMvcPropertiesClone = null;
-					gatewayMvcPropertiesClone = objectMapper
+				// Clone gatewayMvcProperties using ObjectMapper
+				GatewayMvcProperties gatewayMvcPropertiesClone = objectMapper
 							.readValue(objectMapper.writeValueAsString(gatewayMvcProperties), GatewayMvcProperties.class);
 				// Set specified read timeout
 				gatewayMvcPropertiesClone.getHttpClient().setReadTimeout(readTimeout);
