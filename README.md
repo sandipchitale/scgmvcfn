@@ -10,6 +10,10 @@
 
 Use [Test page](http://localhost:8080/test.html) to test the application.
 
+## Blog post
+
+[Blog](https://sandipchitale.medium.com/spring-cloud-gateway-server-mvc-fn-6c8821395f22)
+
 ### Reference Documentation
 For further reference, please consider the following sections:
 
