@@ -107,14 +107,14 @@ public class ScgmvcfnApplication {
 							.method(request.getMethod())
 							.uri(request.getUri())
 							.headers((HttpHeaders httpHeaders) -> {
-                                httpHeaders.putAll(request.getHeaders());
-                            })
+								httpHeaders.putAll(request.getHeaders());
+							})
 							.body((OutputStream outputStream) -> {
-                                copyBody(superCopyBody, request, outputStream);
-                            })
+								copyBody(superCopyBody, request, outputStream);
+							})
 							.exchange((HttpRequest clientRequest, ClientHttpResponse clientResponse) -> {
 								return doExchange(superDoExchange, request, clientResponse);
-								}, false);
+							}, false);
 				}
 			}
 			return super.exchange(request);
@@ -146,7 +146,7 @@ public class ScgmvcfnApplication {
 				ObjectMapper objectMapper = new ObjectMapper();
 				// Clone gatewayMvcProperties using ObjectMapper
 				GatewayMvcProperties gatewayMvcPropertiesClone = objectMapper
-							.readValue(objectMapper.writeValueAsString(gatewayMvcProperties), GatewayMvcProperties.class);
+						.readValue(objectMapper.writeValueAsString(gatewayMvcProperties), GatewayMvcProperties.class);
 				// Set specified read timeout
 				gatewayMvcPropertiesClone.getHttpClient().setReadTimeout(readTimeout);
 				return gatewayServerMvcAutoConfiguration.gatewayClientHttpRequestFactory(gatewayMvcPropertiesClone,
@@ -189,7 +189,7 @@ public class ScgmvcfnApplication {
 
 	private static BiFunction<Throwable, ServerRequest, ServerResponse> timeoutExceptionServerResponse() {
 		return (Throwable throwable, ServerRequest request) -> {
-				ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.GATEWAY_TIMEOUT);
+			ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.GATEWAY_TIMEOUT);
 			problemDetail.setType(request.uri());
 			problemDetail.setDetail(throwable.getCause().getMessage());
 			return ServerResponse
