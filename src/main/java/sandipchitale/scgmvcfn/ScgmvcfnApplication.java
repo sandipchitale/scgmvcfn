@@ -160,9 +160,9 @@ public class ScgmvcfnApplication {
 	private Function<ServerRequest, ServerRequest> methodToRequestHeader() {
 		return (ServerRequest serverRequest) -> {
 			return ServerRequest.from(serverRequest)
-					.headers(httpHeaders -> {
-						httpHeaders.add(X_METHOD, serverRequest.method().name());
-					}).build();
+								.headers(httpHeaders -> {
+									httpHeaders.add(X_METHOD, serverRequest.method().name());
+								}).build();
 		};
 	}
 
@@ -212,22 +212,22 @@ public class ScgmvcfnApplication {
 	public RouterFunction<ServerResponse> postmanEchoRoute() {
 		return RouterFunctions.route()
 //				.before(BeforeFilterFunctions.routeId("echo"))
-				.before(routeId("postman-echo"))
-				.before(methodToRequestHeader())
-				.before(pathFromRequestMethodName())
-				.route(RequestPredicates.path("/")
-								.and(RequestPredicates.methods(
-										HttpMethod.GET,
-										HttpMethod.POST,
-										HttpMethod.PUT,
-										HttpMethod.DELETE)),
+							  .before(routeId("postman-echo"))
+							  .before(methodToRequestHeader())
+							  .before(pathFromRequestMethodName())
+							  .route(RequestPredicates.path("/")
+													  .and(RequestPredicates.methods(
+															  HttpMethod.GET,
+															  HttpMethod.POST,
+															  HttpMethod.PUT,
+															  HttpMethod.DELETE)),
 //                      This is where the proxying to the external, local echo service happens
 //						http(URI.create("http://localhost:9090/")))
 //				        This is where the proxying to the external postman-echo service happens
-						http(URI.create("https://postman-echo.com/")))
-				.after(methodToResponseHeader())
-				.onError(timeoutExceptionPredicate(), timeoutExceptionServerResponse())
-				.build();
+									  http(URI.create("https://postman-echo.com/")))
+							  .after(methodToResponseHeader())
+							  .onError(timeoutExceptionPredicate(), timeoutExceptionServerResponse())
+							  .build();
 	}
 
 }
