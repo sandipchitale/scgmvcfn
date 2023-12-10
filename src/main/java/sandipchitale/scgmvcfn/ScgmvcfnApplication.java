@@ -112,7 +112,7 @@ public class ScgmvcfnApplication {
 							.body((OutputStream outputStream) -> {
 								copyBody(superCopyBody, request, outputStream);
 							})
-							.exchange((HttpRequest clientRequest, ClientHttpResponse clientResponse) -> {
+							.exchange((HttpRequest clientRequest, RestClient.RequestHeadersSpec.ConvertibleClientHttpResponse clientResponse) -> {
 								return doExchange(superDoExchange, request, clientResponse);
 							}, false);
 				}
