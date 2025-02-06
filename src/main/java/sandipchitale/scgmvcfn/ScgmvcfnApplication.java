@@ -1,12 +1,13 @@
 package sandipchitale.scgmvcfn;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.http.client.HttpClientProperties;
+import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
+import org.springframework.boot.http.client.ClientHttpRequestFactorySettings;
+import org.springframework.boot.http.client.JdkClientHttpRequestFactoryBuilder;
+import org.springframework.boot.ssl.SslBundle;
 import org.springframework.boot.ssl.SslBundles;
-import org.springframework.cloud.gateway.server.mvc.GatewayServerMvcAutoConfiguration;
-import org.springframework.cloud.gateway.server.mvc.config.GatewayMvcProperties;
 import org.springframework.cloud.gateway.server.mvc.handler.RestClientProxyExchange;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.*;
@@ -15,6 +16,7 @@ import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.ReflectionUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.function.*;
@@ -56,9 +58,8 @@ public class ScgmvcfnApplication {
 	@Component
 	public static class PerRequestTimeoutRestClientProxyExchange extends RestClientProxyExchange {
 		private static final String X_TIMEOUT_MILLIS = "X-TIMEOUT-MILLIS";
-		private final RestClient.Builder restClientBuilder;
-		private final GatewayServerMvcAutoConfiguration gatewayServerMvcAutoConfiguration;
-		private final GatewayMvcProperties gatewayMvcProperties;
+        private final RestClient.Builder restClientBuilder;
+		private final HttpClientProperties httpClientProperties;
 		private final SslBundles sslBundles;
 
 		// Cache
@@ -67,13 +68,11 @@ public class ScgmvcfnApplication {
 		private final Method superDoExchange;
 
 		public PerRequestTimeoutRestClientProxyExchange(RestClient.Builder restClientBuilder,
-														GatewayServerMvcAutoConfiguration gatewayServerMvcAutoConfiguration,
-														GatewayMvcProperties gatewayMvcProperties,
+														HttpClientProperties httpClientProperties,
 														SslBundles sslBundles) {
 			super(restClientBuilder.build());
-			this.restClientBuilder = restClientBuilder;
-			this.gatewayServerMvcAutoConfiguration = gatewayServerMvcAutoConfiguration;
-			this.gatewayMvcProperties = gatewayMvcProperties;
+            this.restClientBuilder = restClientBuilder;
+			this.httpClientProperties = httpClientProperties;
 			this.sslBundles = sslBundles;
 
 			superCopyBody = ReflectionUtils.findMethod(RestClientProxyExchange.class, "copyBody", Request.class, OutputStream.class);
@@ -97,9 +96,8 @@ public class ScgmvcfnApplication {
 					RestClient restClient = xTimeoutMillisToRestClientMap.get(xTimeoutMillisLong);
 					if (restClient == null) {
 						restClient = restClientBuilder
-								.requestFactory(gatewayClientHttpRequestFactory(gatewayMvcProperties,
-										sslBundles,
-										Duration.ofMillis(Long.parseLong(xTimeoutMillis)))) // Read timeout override
+								.requestFactory(
+										gatewayClientHttpRequestFactory(httpClientProperties, sslBundles, Duration.ofMillis(Long.parseLong(xTimeoutMillis)))) // Read timeout override
 								.build();
 						xTimeoutMillisToRestClientMap.put(xTimeoutMillisLong, restClient);
 					}
@@ -139,22 +137,34 @@ public class ScgmvcfnApplication {
 					clientResponse);
 		}
 
-		private ClientHttpRequestFactory gatewayClientHttpRequestFactory(GatewayMvcProperties gatewayMvcProperties,
-																		 SslBundles sslBundles,
-																		 Duration readTimeout) {
-			try {
-				ObjectMapper objectMapper = new ObjectMapper();
-				// Clone gatewayMvcProperties using ObjectMapper
-				GatewayMvcProperties gatewayMvcPropertiesClone = objectMapper
-						.readValue(objectMapper.writeValueAsString(gatewayMvcProperties), GatewayMvcProperties.class);
-				// Set specified read timeout
-				gatewayMvcPropertiesClone.getHttpClient().setReadTimeout(readTimeout);
-				return gatewayServerMvcAutoConfiguration.gatewayClientHttpRequestFactory(gatewayMvcPropertiesClone,
-						sslBundles);
-			} catch (JsonProcessingException e) {
-				throw new RuntimeException(e);
+		private ClientHttpRequestFactory gatewayClientHttpRequestFactory(HttpClientProperties httpClientProperties,
+																 SslBundles sslBundles,
+																 Duration readTimeout) {
+			SslBundle sslBundle = null;
+			if (StringUtils.hasText(httpClientProperties.getSsl().getBundle())) {
+				sslBundle = sslBundles.getBundle(httpClientProperties.getSsl().getBundle());
 			}
-		}
+
+			ClientHttpRequestFactorySettings settings = new ClientHttpRequestFactorySettings(httpClientProperties.getRedirects(),
+					httpClientProperties.getConnectTimeout(),
+					readTimeout,
+					sslBundle);
+
+
+			ClientHttpRequestFactoryBuilder<?> builder = ClientHttpRequestFactoryBuilder.detect();
+			if (builder instanceof JdkClientHttpRequestFactoryBuilder) {
+				// TODO: customize restricted headers
+				String restrictedHeaders = System.getProperty("jdk.httpclient.allowRestrictedHeaders");
+				if (!StringUtils.hasText(restrictedHeaders)) {
+					System.setProperty("jdk.httpclient.allowRestrictedHeaders", "host");
+				} else if (StringUtils.hasText(restrictedHeaders) && !restrictedHeaders.contains("host")) {
+					System.setProperty("jdk.httpclient.allowRestrictedHeaders", restrictedHeaders + ",host");
+				}
+			}
+
+			// Autodetect
+			return builder.build(settings);
+        }
 	}
 
 	private Function<ServerRequest, ServerRequest> methodToRequestHeader() {
