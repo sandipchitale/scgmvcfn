@@ -58,7 +58,7 @@ public class ScgmvcfnApplication {
 	@Component
 	public static class PerRequestTimeoutRestClientProxyExchange extends RestClientProxyExchange {
 		private static final String X_TIMEOUT_MILLIS = "X-TIMEOUT-MILLIS";
-        private final RestClient.Builder restClientBuilder;
+		private final RestClient.Builder restClientBuilder;
 		private final HttpClientProperties httpClientProperties;
 		private final SslBundles sslBundles;
 
@@ -71,7 +71,7 @@ public class ScgmvcfnApplication {
 														HttpClientProperties httpClientProperties,
 														SslBundles sslBundles) {
 			super(restClientBuilder.build());
-            this.restClientBuilder = restClientBuilder;
+			this.restClientBuilder = restClientBuilder;
 			this.httpClientProperties = httpClientProperties;
 			this.sslBundles = sslBundles;
 
@@ -164,7 +164,7 @@ public class ScgmvcfnApplication {
 
 			// Autodetect
 			return builder.build(settings);
-        }
+		}
 	}
 
 	private Function<ServerRequest, ServerRequest> methodToRequestHeader() {
